@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
-"""Wuppa – Whole Uppa Puppa Package. Ett paket, fyra kusiner:
+"""Wuppa – Whole Uppa Puppa Package. Ett paket, hela släkten:
 
   Uppa   håller dina PowerShell- och Microsoft-CLI-verktyg uppdaterade   github.com/pipebreak33/uppa
   Puppa  M365-adminuppgifter i PowerShell med några knapptryck          github.com/pipebreak33/puppa
   Muppa  flyttar en dator från lokal AD till Entra ID (skript + lista)   github.com/pipebreak33/muppa
   Euppa  allt i Entra ID: användare, grupper, enheter, appar och roller   github.com/pipebreak33/euppa
+  Ruppa  appen: alla kusiner i ett fönster (Rust)                          github.com/pipebreak33/ruppa
+
+Varje verktyg installeras med sin egen installer och går sedan att köra fristående (uppa, puppa, muppa,
+euppa, ruppa), precis som om du installerat det för sig.
 
   wuppa                    meny
   wuppa status             vilka kusiner som finns och om de kan uppdateras
   wuppa install [namn …]   installera kusiner som saknas (utan namn: alla som saknas)
   wuppa update [namn …]    uppdatera kusinerna som har en nyare version, och Wuppa själv
-  wuppa uppa|puppa|muppa|euppa … kör en kusin (allt efter namnet skickas vidare)
+  wuppa uppa|puppa|muppa|euppa|ruppa … kör en kusin (allt efter namnet skickas vidare)
   wuppa self-update        uppdatera bara Wuppa
 
 Enbart standardbiblioteket, Python 3.8+.
@@ -30,7 +34,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 HOME = Path.home()
 DIR = HOME / ".wuppa"
 CONFIG = DIR / "config.json"
@@ -40,10 +44,10 @@ REPO_OWNER = "pipebreak33"
 # Kusinerna installerar sig själva i ~/.<namn>; se till att deras kommandon hittas även innan PATH laddats om.
 if IS_WIN:
     _LA = os.environ.get("LOCALAPPDATA", str(HOME / "AppData" / "Local"))
-    EXTRA_PATH = [str(HOME / f".{n}" / "bin") for n in ("wuppa", "uppa", "puppa", "muppa", "euppa")] + \
+    EXTRA_PATH = [str(HOME / f".{n}" / "bin") for n in ("wuppa", "uppa", "puppa", "muppa", "euppa", "ruppa")] + \
                  [os.path.join(_LA, "Microsoft", "WindowsApps")]
 else:
-    EXTRA_PATH = [str(HOME / ".local/bin"), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"]
+    EXTRA_PATH = [str(HOME / ".local/bin"), str(HOME / ".ruppa/bin"), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"]
 os.environ["PATH"] = os.pathsep.join(dict.fromkeys(os.environ.get("PATH", "").split(os.pathsep) + EXTRA_PATH))
 
 
@@ -67,6 +71,7 @@ COUSINS = [
     Cousin("puppa", "Puppa", "P›", "38;5;75", "M365-admin i PowerShell med några knapptryck"),
     Cousin("muppa", "Muppa", "M›", "38;5;177", "flyttar en dator från lokal AD till Entra ID"),
     Cousin("euppa", "Euppa", "E›", "38;5;205", "allt i Entra ID: användare, grupper, enheter, appar och roller"),
+    Cousin("ruppa", "Ruppa", "R›", "38;5;202", "appen: alla kusiner i ett fönster, med knappar och formulär"),
 ]
 BY_KEY = {k.key: k for k in COUSINS}
 
@@ -260,17 +265,22 @@ def repo_for(name):
     return repo, os.environ.get(env + "_BRANCH") or "main"
 
 
+# Ruppa är ett Rust-program: versionen står i Cargo.toml i stället för i <namn>.py
+VERSION_FILE = {"ruppa": ("Cargo.toml", r'^version\s*=\s*"([^"]+)"')}
+
+
 def github_version(name):
-    """VERSION i <namn>.py på GitHub (raw), eller None om det inte går att nå."""
+    """VERSION i <namn>.py (Ruppa: Cargo.toml) på GitHub (raw), eller None om det inte går att nå."""
     repo, branch = repo_for(name)
+    path, rx = VERSION_FILE.get(name, (f"{name}.py", r'^VERSION\s*=\s*["\']([^"\']+)'))
     try:
-        req = urllib.request.Request(f"https://raw.githubusercontent.com/{repo}/{branch}/{name}.py",
+        req = urllib.request.Request(f"https://raw.githubusercontent.com/{repo}/{branch}/{path}",
                                      headers={"User-Agent": "wuppa/" + VERSION, "Cache-Control": "no-cache"})
         with urllib.request.urlopen(req, timeout=15) as r:
             text = r.read().decode("utf-8", "replace")
     except Exception:
         return None
-    m = re.search(r'^VERSION\s*=\s*["\']([^"\']+)', text, re.M)
+    m = re.search(rx, text, re.M)
     return m.group(1) if m else None
 
 
@@ -305,7 +315,9 @@ def run_installer(name, env=None):
     cmd = installer_cmd(name)
     exe = which(cmd[0]) or cmd[0]
     try:
-        return subprocess.call([exe] + cmd[1:], env={**os.environ, **(env or {})}) == 0
+        # Ruppa: öppna inte appen efter installationen (Wuppa kör vidare i terminalen)
+        extra = {"RUPPA_NO_OPEN": "1"} if name == "ruppa" else {}
+        return subprocess.call([exe] + cmd[1:], env={**os.environ, **extra, **(env or {})}) == 0
     except FileNotFoundError:
         print("  " + red("✘") + f" {cmd[0]} hittades inte")
         return False
@@ -339,8 +351,8 @@ LOGO = "W›"
 JOKES = [
     "Whole Uppa Puppa Package. Muppa och Euppa kom inte med i förkortningen, men har bästa platserna i menyn.",
     "Jag är ett W. Två U bredvid varandra. Dubbelt så uppdaterad.",
-    "Ett paket, fyra kusiner, noll beroenden.",
-    "Uppa uppdaterar, Puppa administrerar, Muppa migrerar, Euppa sköter Entra. Jag håller ordning på släkten.",
+    "Ett paket, hela släkten, noll beroenden.",
+    "Uppa uppdaterar, Puppa administrerar, Muppa migrerar, Euppa sköter Entra och Ruppa visar allt i ett fönster. Jag håller ordning på släkten.",
     "Kör samma rad igen så uppdateras allt. Det är hela tricket.",
     "Jag har inga egna moduler. Jag har kusiner.",
 ]
@@ -522,7 +534,7 @@ def greeting(self_latest):
     missing = [k.name for k in COUSINS if not k.installed]
     old = [k.name for k in COUSINS if k.outdated] + (["jag själv"] if newer(self_latest, VERSION) else [])
     if missing and len(missing) == len(COUSINS):
-        return ("Hej! Jag är Wuppa. Jag håller ihop kusinerna Uppa, Puppa, Muppa och Euppa, men ingen av dem är "
+        return ("Hej! Jag är Wuppa. Jag håller ihop kusinerna Uppa, Puppa, Muppa, Euppa och Ruppa, men ingen av dem är "
                 "installerad än. Ska vi hämta hem dem?"), "wow"
     if missing:
         return (f"Hej! Jag är Wuppa. {join_names(missing)} saknas fortfarande i släkten. "
@@ -543,7 +555,7 @@ def pick_names(names, default):
         return default
     bad = [n for n in names if n.lower() not in BY_KEY]
     if bad:
-        raise SystemExit(f"  okänd kusin: {', '.join(bad)} (välj bland uppa, puppa, muppa, euppa)")
+        raise SystemExit(f"  okänd kusin: {', '.join(bad)} (välj bland uppa, puppa, muppa, euppa, ruppa)")
     return [BY_KEY[n.lower()] for n in dict.fromkeys(names)]
 
 
