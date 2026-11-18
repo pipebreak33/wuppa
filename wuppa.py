@@ -15,6 +15,8 @@ euppa, ruppa), precis som om du installerat det för sig.
   wuppa install [namn …]   installera kusiner som saknas (utan namn: alla som saknas)
   wuppa update [namn …]    uppdatera kusinerna som har en nyare version, och Wuppa själv
   wuppa uppa|puppa|muppa|euppa|ruppa … kör en kusin (allt efter namnet skickas vidare)
+  wuppa uninstall [namn …] avinstallera verktyg med deras egna skript (utan namn: allt, även Wuppa).
+                           -y svarar ja. Dina data (tenants, mallar, cache, rapporter) behålls
   wuppa self-update        uppdatera bara Wuppa
 
 Enbart standardbiblioteket, Python 3.8+.
@@ -34,7 +36,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 HOME = Path.home()
 DIR = HOME / ".wuppa"
 CONFIG = DIR / "config.json"
@@ -292,27 +294,27 @@ def installed_version(name):
     return m.group(0) if m else "?"
 
 
-def installer_cmd(name):
-    """Kommandot som kör verktygets egen installationsrad (samma rad som man klistrar in själv).
-    Finns en lokal checkout (config.json {"local": {"puppa": "/sökväg"}}) används den i stället."""
+def installer_cmd(name, kind="install"):
+    """Kommandot som kör verktygets egen installationsrad (kind="uninstall": avinstallationsraden), samma rad som
+    man klistrar in själv. Finns en lokal checkout (config.json {"local": {"puppa": "/sökväg"}}) används den."""
     local = (config().get("local") or {}).get(name)
     if local:
-        script = Path(local).expanduser() / ("install.ps1" if IS_WIN else "install.sh")
+        script = Path(local).expanduser() / (f"{kind}.ps1" if IS_WIN else f"{kind}.sh")
         if IS_WIN:
             return ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script)]
         return ["sh", str(script)]
     repo, branch = repo_for(name)
     base = f"https://raw.githubusercontent.com/{repo}/{branch}"
     if IS_WIN:
-        return ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", f"irm {base}/install.ps1 | iex"]
+        return ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", f"irm {base}/{kind}.ps1 | iex"]
     # Ladda ner först: med "curl | sh" skulle ett nätfel se ut som en lyckad installation
-    return ["sh", "-c", f'f="$(mktemp)" && curl -fsSL {base}/install.sh -o "$f" && sh "$f"; rc=$?; '
+    return ["sh", "-c", f'f="$(mktemp)" && curl -fsSL {base}/{kind}.sh -o "$f" && sh "$f"; rc=$?; '
                         f'rm -f "$f"; exit $rc']
 
 
-def run_installer(name, env=None):
-    """Kör installern synligt (utdata direkt i terminalen). True om den lyckades."""
-    cmd = installer_cmd(name)
+def run_installer(name, env=None, kind="install"):
+    """Kör installern (eller avinstallationen) synligt, utdata direkt i terminalen. True om den lyckades."""
+    cmd = installer_cmd(name, kind)
     exe = which(cmd[0]) or cmd[0]
     try:
         # Ruppa: öppna inte appen efter installationen (Wuppa kör vidare i terminalen)
@@ -625,6 +627,68 @@ def cmd_update(a):
     return rc
 
 
+def yes(question, default=False):
+    if not sys.stdin.isatty():
+        return default
+    try:
+        a = input(fit(f"  {accent('?')} {bold(question)} {dim('[J/n]' if default else '[j/N]')}") + " ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return False
+    return default if not a else a in ("j", "ja", "y", "yes")
+
+
+def standalone(k):
+    """Installerad fristående (med sin egen installer)? Ruppas kopior i ~/.ruppa/bin räknas inte – dem tar Ruppa bort."""
+    if k.key == "ruppa":
+        return (HOME / ".ruppa" / "bin" / ("ruppa.exe" if IS_WIN else "ruppa")).exists()
+    shim = HOME / f".{k.key}" / "bin" / f"{k.key}.cmd" if IS_WIN else HOME / ".local" / "bin" / k.key
+    return shim.exists()
+
+
+def do_uninstall(targets, me=False, sure=False):
+    """Avinstallera verktygen med deras egna skript (de behåller användarens data), och Wuppa själv om me=True.
+    Frågar en gång för alla (om inte sure). -> 0/1."""
+    names = [k.name for k in targets] + (["Wuppa"] if me else [])
+    if not names:
+        say("Inget av det är installerat här. Inget att ta bort.", "happy")
+        return 0
+    if not sure:
+        say(f"Avinstallera {join_names(names)}? Dina data (tenants, mallar, cache och rapporter) behålls.", "worry")
+        if not yes("Avinstallera?"):
+            say("Okej, inget borttaget.", "happy")
+            return 0
+    failed = []
+    for k in targets:
+        print()
+        print(fit(f"  {c(k.color, bold(k.logo))} {bold('Avinstallerar ' + k.name)}"))
+        if not run_installer(k.key, {k.key.upper() + "_YES": "1"}, kind="uninstall"):
+            failed.append(k)
+            print("  " + red("✘") + f" {k.name} gick inte att avinstallera.")
+    if failed:
+        say(f"{join_names([k.name for k in failed])} gick inte att avinstallera. Resten är borta.", "sad")
+    if me:
+        print()
+        print(fit(f"  {accent(bold(LOGO))} {bold('Avinstallerar Wuppa')}"))
+        # WUPPA_YES utan WUPPA_ALL: släkten är redan hanterad ovan
+        ok = run_installer("wuppa", {"WUPPA_YES": "1", "WUPPA_ALL": ""}, kind="uninstall")
+        if ok:
+            say("Hej då! Allt är borttaget. Installationsraden tar tillbaka allt när du vill.", "happy")
+        return 0 if ok and not failed else 1
+    if not failed:
+        say(f"Klart! {join_names([k.name for k in targets])} är avinstallerad{'e' if len(targets) > 1 else ''}.", "proud")
+    return 1 if failed else 0
+
+
+def cmd_uninstall(a):
+    with Spinner("Kollar vad som är installerat…"):
+        scan()
+    if a.names:
+        targets = [k for k in pick_names([n for n in a.names if n.lower() != "wuppa"], []) if standalone(k)]
+        return do_uninstall(targets, me=any(n.lower() == "wuppa" for n in a.names), sure=a.force)
+    return do_uninstall([k for k in COUSINS if standalone(k)], me=True, sure=a.force)
+
+
 def cmd_self_update(a):
     print()
     print(fit(f"  {accent(bold(LOGO))} {bold('Uppdaterar Wuppa')}"))
@@ -776,6 +840,8 @@ def menu():
                                  value=("one", k.key)))
         rows.append(dict(label="Uppdatera Wuppa", hint=(f"{VERSION} → {lat}" if newer(lat, VERSION)
                                                         else "redan senaste"), value=("self",)))
+        rows.append(dict(label="Avinstallera…", hint="ett verktyg, eller allt (dina data behålls)", value=("uninstall",),
+                         key="a"))
         rows.append(dict(label="Skanna om", value=("rescan",), key="r"))
         rows.append(dict(label="Avsluta", value=("quit",), key="q"))
         v = choose(rows, msg, mood, status=lambda: status_lines(lat, desc=False))
@@ -802,6 +868,28 @@ def menu():
             report([k] if not failed else [], failed, "uppdaterad")
         elif v[0] == "self":
             return restart_after_self_update(Args())
+        elif v[0] == "uninstall":
+            inst = [k for k in COUSINS if standalone(k)]
+            urows = [dict(label="Allt", hint=join_names([k.name for k in inst] + ["Wuppa"]), value=("all",))]
+            urows += [dict(label=k.name, hint=k.desc, value=("one", k.key)) for k in inst]
+            urows += [dict(label="Bara Wuppa", hint="kusinerna finns kvar och går att köra som vanligt", value=("me",)),
+                      dict(label="Tillbaka", value=("back",), key="q")]
+            u = choose(urows, "Vad ska bort? Dina data (tenants, mallar, cache och rapporter) behålls.", "worry",
+                       title="Avinstallera")
+            if u and u[0] != "back":
+                if TTY:
+                    sys.stdout.write("\033[H\033[2J")
+                if u[0] == "all":
+                    do_uninstall(inst, me=True)
+                    if not which("wuppa"):
+                        return 0
+                elif u[0] == "me":
+                    do_uninstall([], me=True)
+                    if not which("wuppa"):
+                        return 0
+                else:
+                    do_uninstall([BY_KEY[u[1]]])
+                pause()
         with Spinner("Räknar in kusinerna igen…"):
             lat = scan()
 
@@ -844,14 +932,15 @@ def main(argv=None):
         print(__doc__.strip())
         return 0
     a = Args()
-    a.force = any(x in ("-f", "--force") for x in argv)
+    a.force = any(x in ("-f", "--force", "-y", "--ja", "--yes") for x in argv)
     rest = [x for x in argv if not x.startswith("-")]
     cmd, a.names = (rest[0], rest[1:]) if rest else (None, [])
     try:
         if cmd is None:
             return menu()
         fn = {"status": cmd_status, "install": cmd_install, "update": cmd_update, "upgrade": cmd_update,
-              "self-update": cmd_self_update}.get(cmd)
+              "self-update": cmd_self_update,
+              "uninstall": cmd_uninstall, "avinstallera": cmd_uninstall}.get(cmd)
         if not fn:
             print(f"  okänt kommando: {cmd}\n")
             print(__doc__.strip())

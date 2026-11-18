@@ -65,6 +65,8 @@ curl -fsSL https://raw.githubusercontent.com/pipebreak33/wuppa/main/uninstall.sh
 Tar bort programmet och kommandot `wuppa` (och PATH-posten på Windows). Det behåller Wuppas inställningar i `~/.wuppa`.
 `WUPPA_PURGE=1` tar bort även dina data, och `WUPPA_YES=1` hoppar över frågan.
 
+Inifrån Wuppa: `wuppa uninstall` (allt), `wuppa uninstall puppa euppa` (bara de), eller *Avinstallera…* i menyn.
+
 Har Wuppa installerat släkten frågar avinstallationen om Uppa, Puppa, Muppa, Euppa och Ruppa ska bort också (var och en avinstalleras med sitt eget skript, deras data behålls). `WUPPA_ALL=1` svarar ja.
 
 ## Kommandon
@@ -76,10 +78,11 @@ Har Wuppa installerat släkten frågar avinstallationen om Uppa, Puppa, Muppa, E
 | `wuppa install [uppa puppa muppa euppa ruppa]` | installera det som saknas |
 | `wuppa update [uppa puppa muppa euppa ruppa]` | uppdatera det som har en nyare version, och Wuppa själv |
 | `wuppa uppa …` / `wuppa puppa …` / `wuppa muppa …` / `wuppa euppa …` / `wuppa ruppa …` | kör en kusin, allt efter namnet skickas vidare |
+| `wuppa uninstall [namn …]` | avinstallera verktyg med deras egna skript; utan namn allt, även Wuppa (`-y` svarar ja). Dina data behålls |
 | `wuppa self-update` | uppdatera bara Wuppa |
 | `--no-anim` | inga animationer (stängs också av av `NO_COLOR` och när utdata pipas) |
 
-Menyn styrs som kusinernas: piltangenter, siffror som snabbval, `u` uppdatera allt, `i` installera det som saknas,
+Menyn styrs som kusinernas: piltangenter, siffror som snabbval, `u` uppdatera allt, `i` installera det som saknas, `a` avinstallera,
 `r` skanna om och `q` avsluta.
 
 ## Teknik
