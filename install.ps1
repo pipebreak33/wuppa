@@ -1,8 +1,8 @@
 <#
  Wuppa för Windows (Windows PowerShell 5.1 eller PowerShell 7). Fungerar även i pwsh på macOS/Linux.
- Installerar Wuppa och kusinerna Uppa, Puppa och Muppa. Kör igen = allt uppdateras:
+ Installerar Wuppa och kusinerna Uppa, Puppa, Muppa och Euppa. Kör igen = allt uppdateras:
    irm https://raw.githubusercontent.com/pipebreak33/wuppa/main/install.ps1 | iex
- Från en lokal kopia:  ./install.ps1   (finns ..\uppa, ..\puppa, ..\muppa bredvid används de också)
+ Från en lokal kopia:  ./install.ps1   (finns ..\uppa, ..\puppa, ..\muppa, ..\euppa bredvid används de också)
  Styr källan med $env:WUPPA_REPO = 'ägare/repo' och $env:WUPPA_BRANCH = 'gren eller tagg'.
  $env:WUPPA_ONLY = '1' installerar bara Wuppa. $env:WUPPA_SKIP = 'muppa puppa' hoppar över kusiner.
  Inga frågor.
@@ -169,7 +169,7 @@ if ($env:WUPPA_ONLY -ne '1') {
     $owner = $Repo.Split('/')[0]
     $skip = @(if ($env:WUPPA_SKIP) { $env:WUPPA_SKIP -split '[\s,;]+' })
     $ps = if ($OnWindows) { 'powershell.exe' } else { 'pwsh' }
-    foreach ($name in 'uppa', 'puppa', 'muppa') {
+    foreach ($name in 'uppa', 'puppa', 'muppa', 'euppa') {
         if ($skip -contains $name) { continue }
         Write-Host ''
         $localDir = if ($PSScriptRoot) { Join-Path (Split-Path $PSScriptRoot -Parent) $name } else { $null }
@@ -190,5 +190,5 @@ Write-Host ''
 if ($failed) {
     Warn ("Det här gick inte: " + ($failed -join ', ') + ". Kör samma rad igen om en stund, eller: wuppa install " + ($failed -join ' '))
 } else {
-    Write-Host "  W› Klart! Öppna en ny terminal och kör wuppa för menyn, eller uppa, puppa och muppa direkt.`n" -ForegroundColor Yellow
+    Write-Host "  W› Klart! Öppna en ny terminal och kör wuppa för menyn, eller uppa, puppa, muppa och euppa direkt.`n" -ForegroundColor Yellow
 }

@@ -1,8 +1,8 @@
 #!/usr/bin/env sh
-# Wuppa för macOS och Linux – installerar Wuppa och kusinerna Uppa, Puppa och Muppa.
+# Wuppa för macOS och Linux – installerar Wuppa och kusinerna Uppa, Puppa, Muppa och Euppa.
 # Kör samma rad igen = allt uppdateras till senaste versionen:
 #   curl -fsSL https://raw.githubusercontent.com/pipebreak33/wuppa/main/install.sh | sh
-# Från en lokal kopia:  ./install.sh   (finns ../uppa, ../puppa, ../muppa bredvid används de också)
+# Från en lokal kopia:  ./install.sh   (finns ../uppa, ../puppa, ../muppa, ../euppa bredvid används de också)
 # Styr källan med WUPPA_REPO=ägare/repo och WUPPA_BRANCH=gren. Kusinerna läser UPPA_REPO, PUPPA_REPO osv.
 # WUPPA_ONLY=1 installerar bara Wuppa. WUPPA_SKIP="muppa puppa" hoppar över kusiner.
 set -eu
@@ -96,7 +96,7 @@ printf '  \033[38;5;42m✔\033[0m %s installerad.\n' "$VER"
 # 6. Kusinerna: kör var och ens egen installer (installerar eller uppdaterar)
 FAILED=""
 if [ "${WUPPA_ONLY:-}" != "1" ]; then
-  for name in uppa puppa muppa; do
+  for name in uppa puppa muppa euppa; do
     case " ${WUPPA_SKIP:-} " in *" $name "*) continue;; esac
     printf '\n'
     if [ -n "$LOCAL" ] && [ -f "$LOCAL/../$name/install.sh" ] && [ -f "$LOCAL/../$name/$name.py" ]; then
@@ -121,4 +121,4 @@ if [ -n "$FAILED" ]; then
   printf '  Resten är klart. Kör: \033[1mwuppa\033[0m\n\n'
   exit 1
 fi
-printf '  \033[38;5;220mW›\033[0m Klart! Kör \033[1mwuppa\033[0m för menyn, eller uppa, puppa och muppa direkt.\n\n'
+printf '  \033[38;5;220mW›\033[0m Klart! Kör \033[1mwuppa\033[0m för menyn, eller uppa, puppa, muppa och euppa direkt.\n\n'

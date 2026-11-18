@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""Wuppa – Whole Uppa Puppa Package. Ett paket, tre kusiner:
+"""Wuppa – Whole Uppa Puppa Package. Ett paket, fyra kusiner:
 
   Uppa   håller dina PowerShell- och Microsoft-CLI-verktyg uppdaterade   github.com/pipebreak33/uppa
   Puppa  M365-adminuppgifter i PowerShell med några knapptryck          github.com/pipebreak33/puppa
   Muppa  flyttar en dator från lokal AD till Entra ID (skript + lista)   github.com/pipebreak33/muppa
+  Euppa  allt i Entra ID: användare, grupper, enheter, appar och roller   github.com/pipebreak33/euppa
 
   wuppa                    meny
   wuppa status             vilka kusiner som finns och om de kan uppdateras
   wuppa install [namn …]   installera kusiner som saknas (utan namn: alla som saknas)
   wuppa update [namn …]    uppdatera kusinerna som har en nyare version, och Wuppa själv
-  wuppa uppa|puppa|muppa … kör en kusin (allt efter namnet skickas vidare)
+  wuppa uppa|puppa|muppa|euppa … kör en kusin (allt efter namnet skickas vidare)
   wuppa self-update        uppdatera bara Wuppa
 
 Enbart standardbiblioteket, Python 3.8+.
@@ -29,7 +30,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 HOME = Path.home()
 DIR = HOME / ".wuppa"
 CONFIG = DIR / "config.json"
@@ -39,7 +40,7 @@ REPO_OWNER = "pipebreak33"
 # Kusinerna installerar sig själva i ~/.<namn>; se till att deras kommandon hittas även innan PATH laddats om.
 if IS_WIN:
     _LA = os.environ.get("LOCALAPPDATA", str(HOME / "AppData" / "Local"))
-    EXTRA_PATH = [str(HOME / f".{n}" / "bin") for n in ("wuppa", "uppa", "puppa", "muppa")] + \
+    EXTRA_PATH = [str(HOME / f".{n}" / "bin") for n in ("wuppa", "uppa", "puppa", "muppa", "euppa")] + \
                  [os.path.join(_LA, "Microsoft", "WindowsApps")]
 else:
     EXTRA_PATH = [str(HOME / ".local/bin"), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"]
@@ -65,6 +66,7 @@ COUSINS = [
     Cousin("uppa", "Uppa", "U›", "38;5;49", "håller PowerShell- och Microsoft-verktygen uppdaterade"),
     Cousin("puppa", "Puppa", "P›", "38;5;75", "M365-admin i PowerShell med några knapptryck"),
     Cousin("muppa", "Muppa", "M›", "38;5;177", "flyttar en dator från lokal AD till Entra ID"),
+    Cousin("euppa", "Euppa", "E›", "38;5;205", "allt i Entra ID: användare, grupper, enheter, appar och roller"),
 ]
 BY_KEY = {k.key: k for k in COUSINS}
 
@@ -335,10 +337,10 @@ SAD_SHADE = ["38;5;187", "38;5;180", "38;5;144", "38;5;137", "38;5;101"]
 ART_W = 11
 LOGO = "W›"
 JOKES = [
-    "Whole Uppa Puppa Package. Muppa kom inte med i förkortningen, men har bästa platsen i menyn.",
+    "Whole Uppa Puppa Package. Muppa och Euppa kom inte med i förkortningen, men har bästa platserna i menyn.",
     "Jag är ett W. Två U bredvid varandra. Dubbelt så uppdaterad.",
-    "Ett paket, tre kusiner, noll beroenden.",
-    "Uppa uppdaterar, Puppa administrerar, Muppa migrerar. Jag håller ordning på släkten.",
+    "Ett paket, fyra kusiner, noll beroenden.",
+    "Uppa uppdaterar, Puppa administrerar, Muppa migrerar, Euppa sköter Entra. Jag håller ordning på släkten.",
     "Kör samma rad igen så uppdateras allt. Det är hela tricket.",
     "Jag har inga egna moduler. Jag har kusiner.",
 ]
@@ -428,7 +430,7 @@ def celebrate(msg):
     DIRTY = True
     if not ANIM:
         return say(msg, "proud")
-    cols = ["38;5;220", "38;5;49", "38;5;75", "38;5;177", "38;5;227"]   # Wuppa + kusinernas färger
+    cols = ["38;5;220", "38;5;49", "38;5;75", "38;5;177", "38;5;205", "38;5;227"]   # Wuppa + kusinernas färger
     live = Live()
     sys.stdout.write("\033[?25l")
     try:
@@ -520,7 +522,7 @@ def greeting(self_latest):
     missing = [k.name for k in COUSINS if not k.installed]
     old = [k.name for k in COUSINS if k.outdated] + (["jag själv"] if newer(self_latest, VERSION) else [])
     if missing and len(missing) == len(COUSINS):
-        return ("Hej! Jag är Wuppa. Jag håller ihop kusinerna Uppa, Puppa och Muppa, men ingen av dem är "
+        return ("Hej! Jag är Wuppa. Jag håller ihop kusinerna Uppa, Puppa, Muppa och Euppa, men ingen av dem är "
                 "installerad än. Ska vi hämta hem dem?"), "wow"
     if missing:
         return (f"Hej! Jag är Wuppa. {join_names(missing)} saknas fortfarande i släkten. "
@@ -528,7 +530,7 @@ def greeting(self_latest):
     if old:
         return (f"Hej! Jag är Wuppa. Det finns nytt för {join_names(old)}. Ska vi wuppa?"), "wow"
     joke = (" " + random.choice(JOKES)) if width() >= 80 else ""    # smalt fönster: bubblan ska inte klippas
-    return "Hej! Jag är Wuppa. Alla tre kusinerna är hemma och fräscha." + joke, "happy"
+    return "Hej! Jag är Wuppa. Alla kusinerna är hemma och fräscha." + joke, "happy"
 
 
 def join_names(names):
@@ -541,7 +543,7 @@ def pick_names(names, default):
         return default
     bad = [n for n in names if n.lower() not in BY_KEY]
     if bad:
-        raise SystemExit(f"  okänd kusin: {', '.join(bad)} (välj bland uppa, puppa, muppa)")
+        raise SystemExit(f"  okänd kusin: {', '.join(bad)} (välj bland uppa, puppa, muppa, euppa)")
     return [BY_KEY[n.lower()] for n in dict.fromkeys(names)]
 
 
@@ -585,7 +587,7 @@ def cmd_install(a):
     if not a.names:
         targets = [k for k in targets if not k.installed]
     if not targets:
-        say("Alla tre kusinerna är redan installerade. Vill du uppdatera dem: wuppa update", "proud")
+        say("Alla kusinerna är redan installerade. Vill du uppdatera dem: wuppa update", "proud")
         return 0
     failed = do_install(targets)
     return report([k for k in targets if k not in failed], failed, "installerade")
@@ -753,7 +755,7 @@ def menu():
             n = len(old) + (1 if newer(lat, VERSION) else 0)
             rows.append(dict(label="Uppdatera allt", hint=f"{n} kan uppdateras", value=("update",), key="u"))
         if missing:
-            rows.append(dict(label="Installera " + ("alla tre" if len(missing) == 3 else join_names(
+            rows.append(dict(label="Installera " + ("alla" if len(missing) == len(COUSINS) else join_names(
                 [k.name for k in missing])), hint="kör kusinernas egna installers", value=("install",), key="i"))
         for k in COUSINS:
             if k.installed:
