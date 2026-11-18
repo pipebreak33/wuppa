@@ -47,6 +47,26 @@ skulle ha hamnat (`~/.uppa`, `~/.puppa`, `~/.muppa`, `~/.euppa`, `~/.ruppa`). G�
 Från en lokal kopia: `./install.sh` / `./install.ps1`. Ligger `uppa`, `puppa`, `muppa`, `euppa` och `ruppa` utcheckade bredvid
 `wuppa` installeras de därifrån.
 
+
+## Avinstallera
+
+**Windows** (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/pipebreak33/wuppa/main/uninstall.ps1 | iex
+```
+
+**macOS / Linux:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/pipebreak33/wuppa/main/uninstall.sh | sh
+```
+
+Tar bort programmet och kommandot `wuppa` (och PATH-posten på Windows). Det behåller Wuppas inställningar i `~/.wuppa`.
+`WUPPA_PURGE=1` tar bort även dina data, och `WUPPA_YES=1` hoppar över frågan.
+
+Har Wuppa installerat släkten frågar avinstallationen om Uppa, Puppa, Muppa, Euppa och Ruppa ska bort också (var och en avinstalleras med sitt eget skript, deras data behålls). `WUPPA_ALL=1` svarar ja.
+
 ## Kommandon
 
 | | |

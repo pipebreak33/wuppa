@@ -12,6 +12,7 @@
    2. direkt från python.org (per användare, inga adminrättigheter).
 #>
 $ErrorActionPreference = 'Stop'
+$Clock = [Diagnostics.Stopwatch]::StartNew()
 $ProgressPreference = 'SilentlyContinue'
 if ($PSVersionTable.PSEdition -ne 'Core') {
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
@@ -188,8 +189,10 @@ if ($env:WUPPA_ONLY -ne '1') {
 if ($OnWindows) { Update-SessionPath }
 
 Write-Host ''
+$Clock.Stop(); $took = if ($Clock.Elapsed.TotalSeconds -ge 60) { '{0} min {1} s' -f [int][math]::Floor($Clock.Elapsed.TotalMinutes), $Clock.Elapsed.Seconds } else { '{0} s' -f [int]$Clock.Elapsed.TotalSeconds }
 if ($failed) {
-    Warn ("Det här gick inte: " + ($failed -join ', ') + ". Kör samma rad igen om en stund, eller: wuppa install " + ($failed -join ' '))
+    Warn ("Det här gick inte ($took): " + ($failed -join ', ') + ". Kör samma rad igen om en stund, eller: wuppa install " + ($failed -join ' '))
 } else {
-    Write-Host "  W› Klart! Öppna en ny terminal och kör wuppa för menyn, eller uppa, puppa, muppa, euppa och ruppa direkt.`n" -ForegroundColor Yellow
+    Write-Host "  W› Klart på $took! Öppna en ny terminal och kör wuppa för menyn, eller uppa, puppa, muppa, euppa och ruppa direkt." -ForegroundColor Yellow
+    Write-Host "  Avinstallera: irm https://raw.githubusercontent.com/pipebreak33/wuppa/main/uninstall.ps1 | iex   (frågar om hela släkten)`n" -ForegroundColor DarkGray
 }

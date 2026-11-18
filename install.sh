@@ -6,6 +6,7 @@
 # Styr källan med WUPPA_REPO=ägare/repo och WUPPA_BRANCH=gren. Kusinerna läser UPPA_REPO, PUPPA_REPO osv.
 # WUPPA_ONLY=1 installerar bara Wuppa. WUPPA_SKIP="muppa puppa" hoppar över kusiner.
 set -eu
+START="$(date +%s)"
 
 REPO="${WUPPA_REPO:-pipebreak33/wuppa}"
 BRANCH="${WUPPA_BRANCH:-main}"
@@ -118,9 +119,11 @@ if [ "${WUPPA_ONLY:-}" != "1" ]; then
 fi
 
 printf '\n'
+SECS=$(( $(date +%s) - START )); if [ "$SECS" -ge 60 ]; then TOOK="$((SECS / 60)) min $((SECS % 60)) s"; else TOOK="$SECS s"; fi
 if [ -n "$FAILED" ]; then
-  warn "Det här gick inte:$FAILED. Kör samma rad igen om en stund, eller: wuppa install$FAILED"
+  warn "Det här gick inte:$FAILED ($TOOK). Kör samma rad igen om en stund, eller: wuppa install$FAILED"
   printf '  Resten är klart. Kör: \033[1mwuppa\033[0m\n\n'
   exit 1
 fi
-printf '  \033[38;5;220mW›\033[0m Klart! Kör \033[1mwuppa\033[0m för menyn, eller uppa, puppa, muppa, euppa och ruppa direkt.\n\n'
+printf '  \033[38;5;220mW›\033[0m Klart på %s! Kör \033[1mwuppa\033[0m för menyn, eller uppa, puppa, muppa, euppa och ruppa direkt.\n' "$TOOK"
+printf '  \033[2mAvinstallera: curl -fsSL https://raw.githubusercontent.com/pipebreak33/wuppa/main/uninstall.sh | sh   (frågar om hela släkten)\033[0m\n\n'
