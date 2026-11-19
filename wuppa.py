@@ -1,25 +1,26 @@
 #!/usr/bin/env python3
-"""Wuppa – Whole Uppa Puppa Package. Ett paket, hela släkten:
+"""Wuppa – Whole Uppa Puppa Package. One package, the whole troupe:
 
-  Uppa   håller dina PowerShell- och Microsoft-CLI-verktyg uppdaterade   github.com/pipebreak33/uppa
-  Puppa  M365-adminuppgifter i PowerShell med några knapptryck          github.com/pipebreak33/puppa
-  Muppa  flyttar en dator från lokal AD till Entra ID (skript + lista)   github.com/pipebreak33/muppa
-  Euppa  allt i Entra ID: användare, grupper, enheter, appar och roller   github.com/pipebreak33/euppa
-  Ruppa  appen: alla kusiner i ett fönster (Rust)                          github.com/pipebreak33/ruppa
+  Uppa   keeps your PowerShell modules and Microsoft CLIs up to date      github.com/pipebreak33/uppa
+  Puppa  Microsoft 365 admin tasks in PowerShell in a few keystrokes       github.com/pipebreak33/puppa
+  Muppa  moves a PC from on-premises AD to Entra ID (script + checklist)   github.com/pipebreak33/muppa
+  Euppa  everything in Entra ID: users, groups, devices, apps and roles    github.com/pipebreak33/euppa
+  Ruppa  the app: every tool in one window (Rust)                          github.com/pipebreak33/ruppa
 
-Varje verktyg installeras med sin egen installer och går sedan att köra fristående (uppa, puppa, muppa,
-euppa, ruppa), precis som om du installerat det för sig.
+Each tool is installed with its own installer and then runs standalone (uppa, puppa, muppa, euppa,
+ruppa), exactly as if you had installed it on its own.
 
-  wuppa                    meny
-  wuppa status             vilka kusiner som finns och om de kan uppdateras
-  wuppa install [namn …]   installera kusiner som saknas (utan namn: alla som saknas)
-  wuppa update [namn …]    uppdatera kusinerna som har en nyare version, och Wuppa själv
-  wuppa uppa|puppa|muppa|euppa|ruppa … kör en kusin (allt efter namnet skickas vidare)
-  wuppa uninstall [namn …] avinstallera verktyg med deras egna skript (utan namn: allt, även Wuppa).
-                           -y svarar ja. Dina data (tenants, mallar, cache, rapporter) behålls
-  wuppa self-update        uppdatera bara Wuppa
+  wuppa                    menu
+  wuppa status             which tools are installed and whether they can be updated
+  wuppa install [name …]   install missing tools (no names: everything that is missing)
+  wuppa update [name …]    update tools that have a newer version, and Wuppa itself
+  wuppa uppa|puppa|muppa|euppa|ruppa …  run a tool (everything after the name is passed on)
+  wuppa uninstall [name …] uninstall tools with their own scripts (no names: everything, Wuppa too).
+                           -y answers yes. Your data (tenants, templates, cache, reports) is kept
+  wuppa self-update        update only Wuppa
+  wuppa lang [en|sv]       show or set the language for the whole troupe (English or Swedish)
 
-Enbart standardbiblioteket, Python 3.8+.
+Standard library only, Python 3.8+.
 """
 from __future__ import annotations
 
@@ -36,7 +37,31 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-VERSION = "1.3.0"
+DOC_SV = """Wuppa – Whole Uppa Puppa Package. Ett paket, hela truppen:
+
+  Uppa   håller dina PowerShell-moduler och Microsoft-CLI:er uppdaterade   github.com/pipebreak33/uppa
+  Puppa  M365-adminuppgifter i PowerShell med några knapptryck            github.com/pipebreak33/puppa
+  Muppa  flyttar en dator från lokal AD till Entra ID (skript + lista)     github.com/pipebreak33/muppa
+  Euppa  allt i Entra ID: användare, grupper, enheter, appar och roller    github.com/pipebreak33/euppa
+  Ruppa  appen: alla verktyg i ett fönster (Rust)                          github.com/pipebreak33/ruppa
+
+Varje verktyg installeras med sin egen installer och går sedan att köra fristående (uppa, puppa, muppa,
+euppa, ruppa), precis som om du installerat det för sig.
+
+  wuppa                    meny
+  wuppa status             vilka verktyg som finns och om de kan uppdateras
+  wuppa install [namn …]   installera verktyg som saknas (utan namn: alla som saknas)
+  wuppa update [namn …]    uppdatera verktygen som har en nyare version, och Wuppa själv
+  wuppa uppa|puppa|muppa|euppa|ruppa …  kör ett verktyg (allt efter namnet skickas vidare)
+  wuppa uninstall [namn …] avinstallera verktyg med deras egna skript (utan namn: allt, även Wuppa).
+                           -y svarar ja. Dina data (tenants, mallar, cache, rapporter) behålls
+  wuppa self-update        uppdatera bara Wuppa
+  wuppa lang [en|sv]       visa eller välj språk för hela truppen (engelska eller svenska)
+
+Enbart standardbiblioteket, Python 3.8+.
+"""
+
+VERSION = "1.4.0"
 HOME = Path.home()
 DIR = HOME / ".wuppa"
 CONFIG = DIR / "config.json"
@@ -51,6 +76,40 @@ if IS_WIN:
 else:
     EXTRA_PATH = [str(HOME / ".local/bin"), str(HOME / ".ruppa/bin"), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"]
 os.environ["PATH"] = os.pathsep.join(dict.fromkeys(os.environ.get("PATH", "").split(os.pathsep) + EXTRA_PATH))
+
+# ───────────────────────────── language ─────────────────────────────
+# One setting for the whole troupe: ~/.truppa/config.json {"lang": "en"|"sv"}. TRUPPA_LANG overrides it. Default: English.
+TRUPPA = HOME / ".truppa" / "config.json"
+
+
+def _lang():
+    v = os.environ.get("TRUPPA_LANG")
+    if not v:
+        try:
+            v = json.loads(TRUPPA.read_text(encoding="utf-8")).get("lang")
+        except Exception:
+            v = None
+    return "sv" if str(v or "en").lower().startswith("sv") else "en"
+
+
+LANG = _lang()
+
+
+def L(en, sv):
+    """The text in the chosen language (English first)."""
+    return sv if LANG == "sv" else en
+
+
+def set_lang(lang):
+    global LANG
+    TRUPPA.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        cfg = json.loads(TRUPPA.read_text(encoding="utf-8"))
+    except Exception:
+        cfg = {}
+    cfg["lang"] = lang
+    TRUPPA.write_text(json.dumps(cfg, indent=1), encoding="utf-8")
+    LANG = lang
 
 
 class Cousin:
@@ -69,11 +128,16 @@ class Cousin:
 
 
 COUSINS = [
-    Cousin("uppa", "Uppa", "U›", "38;5;49", "håller PowerShell- och Microsoft-verktygen uppdaterade"),
-    Cousin("puppa", "Puppa", "P›", "38;5;75", "M365-admin i PowerShell med några knapptryck"),
-    Cousin("muppa", "Muppa", "M›", "38;5;177", "flyttar en dator från lokal AD till Entra ID"),
-    Cousin("euppa", "Euppa", "E›", "38;5;205", "allt i Entra ID: användare, grupper, enheter, appar och roller"),
-    Cousin("ruppa", "Ruppa", "R›", "38;5;202", "appen: alla kusiner i ett fönster, med knappar och formulär"),
+    Cousin("uppa", "Uppa", "U›", "38;5;49", L("keeps your PowerShell and Microsoft tools up to date",
+                                               "håller PowerShell- och Microsoft-verktygen uppdaterade")),
+    Cousin("puppa", "Puppa", "P›", "38;5;75", L("Microsoft 365 admin in PowerShell in a few keystrokes",
+                                                "M365-admin i PowerShell med några knapptryck")),
+    Cousin("muppa", "Muppa", "M›", "38;5;177", L("moves a PC from on-premises AD to Entra ID",
+                                                 "flyttar en dator från lokal AD till Entra ID")),
+    Cousin("euppa", "Euppa", "E›", "38;5;205", L("everything in Entra ID: users, groups, devices, apps and roles",
+                                                 "allt i Entra ID: användare, grupper, enheter, appar och roller")),
+    Cousin("ruppa", "Ruppa", "R›", "38;5;202", L("the app: every tool in one window, with buttons and forms",
+                                                 "appen: alla verktyg i ett fönster, med knappar och formulär")),
 ]
 BY_KEY = {k.key: k for k in COUSINS}
 
@@ -237,7 +301,7 @@ def run(cmd, timeout=60):
                            encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL)
         return p.returncode, p.stdout, p.stderr
     except FileNotFoundError:
-        return 127, "", f"{cmd[0]}: hittades inte"
+        return 127, "", L(f"{cmd[0]}: not found", f"{cmd[0]}: hittades inte")
     except subprocess.TimeoutExpired:
         return 124, "", "timeout"
 
@@ -321,7 +385,7 @@ def run_installer(name, env=None, kind="install"):
         extra = {"RUPPA_NO_OPEN": "1"} if name == "ruppa" else {}
         return subprocess.call([exe] + cmd[1:], env={**os.environ, **extra, **(env or {})}) == 0
     except FileNotFoundError:
-        print("  " + red("✘") + f" {cmd[0]} hittades inte")
+        print("  " + red("✘") + L(f" {cmd[0]} not found", f" {cmd[0]} hittades inte"))
         return False
 
 
@@ -350,11 +414,19 @@ SHADE = ["38;5;228", "38;5;221", "38;5;220", "38;5;214", "38;5;208"]     # ljus 
 SAD_SHADE = ["38;5;187", "38;5;180", "38;5;144", "38;5;137", "38;5;101"]
 ART_W = 11
 LOGO = "W›"
-JOKES = [
+JOKES_EN = [
+    "Whole Uppa Puppa Package. Muppa and Euppa didn't make the acronym, but they got the best seats in the menu.",
+    "I'm a W. Two U's side by side. Twice as up to date.",
+    "One package, the whole troupe, zero dependencies.",
+    "Uppa updates, Puppa administers, Muppa migrates, Euppa runs Entra and Ruppa shows it all in a window. I keep the troupe in line.",
+    "Run the same line again and everything updates. That's the whole trick.",
+    "I have no modules of my own. I have cousins.",
+]
+JOKES_SV = [
     "Whole Uppa Puppa Package. Muppa och Euppa kom inte med i förkortningen, men har bästa platserna i menyn.",
     "Jag är ett W. Två U bredvid varandra. Dubbelt så uppdaterad.",
-    "Ett paket, hela släkten, noll beroenden.",
-    "Uppa uppdaterar, Puppa administrerar, Muppa migrerar, Euppa sköter Entra och Ruppa visar allt i ett fönster. Jag håller ordning på släkten.",
+    "Ett paket, hela truppen, noll beroenden.",
+    "Uppa uppdaterar, Puppa administrerar, Muppa migrerar, Euppa sköter Entra och Ruppa visar allt i ett fönster. Jag håller ordning på truppen.",
     "Kör samma rad igen så uppdateras allt. Det är hela tricket.",
     "Jag har inga egna moduler. Jag har kusiner.",
 ]
@@ -493,7 +565,7 @@ class Spinner:
 def pause():
     if sys.stdin.isatty():
         try:
-            input(dim("\n   enter för att fortsätta "))
+            input(dim(L("\n   press enter to continue ", "\n   enter för att fortsätta ")))
         except (EOFError, KeyboardInterrupt):
             print()
 
@@ -513,7 +585,7 @@ def new_screen():
 def cousin_line(k, w=None, desc=True):
     w = w or width()
     if not k.installed:
-        mark, ver = dim("○"), dim("saknas" + (f" · {k.latest} finns" if k.latest else ""))
+        mark, ver = dim("○"), dim(L("missing", "saknas") + (L(f" · {k.latest} available", f" · {k.latest} finns") if k.latest else ""))
     elif k.outdated:
         mark, ver = yellow("●"), f"{k.current} {dim('→')} {yellow(k.latest)}"
     else:
@@ -534,21 +606,27 @@ def status_lines(self_latest=None, desc=True):
 
 def greeting(self_latest):
     missing = [k.name for k in COUSINS if not k.installed]
-    old = [k.name for k in COUSINS if k.outdated] + (["jag själv"] if newer(self_latest, VERSION) else [])
+    old = [k.name for k in COUSINS if k.outdated] + ([L("me", "jag själv")] if newer(self_latest, VERSION) else [])
     if missing and len(missing) == len(COUSINS):
-        return ("Hej! Jag är Wuppa. Jag håller ihop kusinerna Uppa, Puppa, Muppa, Euppa och Ruppa, men ingen av dem är "
-                "installerad än. Ska vi hämta hem dem?"), "wow"
+        return L("Hi! I'm Wuppa. I keep the troupe together: Uppa, Puppa, Muppa, Euppa and Ruppa. None of them is "
+                 "installed yet. Shall we bring them home?",
+                 "Hej! Jag är Wuppa. Jag håller ihop truppen: Uppa, Puppa, Muppa, Euppa och Ruppa. Ingen av dem är "
+                 "installerad än. Ska vi hämta hem dem?"), "wow"
     if missing:
-        return (f"Hej! Jag är Wuppa. {join_names(missing)} saknas fortfarande i släkten. "
-                f"Ska jag installera {'den' if len(missing) == 1 else 'dem'}?"), "worry"
+        n = join_names(missing)
+        return L(f"Hi! I'm Wuppa. {n} {'is' if len(missing) == 1 else 'are'} still missing from the troupe. "
+                 f"Shall I install {'it' if len(missing) == 1 else 'them'}?",
+                 f"Hej! Jag är Wuppa. {n} saknas fortfarande i truppen. "
+                 f"Ska jag installera {'den' if len(missing) == 1 else 'dem'}?"), "worry"
     if old:
-        return (f"Hej! Jag är Wuppa. Det finns nytt för {join_names(old)}. Ska vi wuppa?"), "wow"
-    joke = (" " + random.choice(JOKES)) if width() >= 80 else ""    # smalt fönster: bubblan ska inte klippas
-    return "Hej! Jag är Wuppa. Alla kusinerna är hemma och fräscha." + joke, "happy"
+        return L(f"Hi! I'm Wuppa. There's something new for {join_names(old)}. Shall we wuppa?",
+                 f"Hej! Jag är Wuppa. Det finns nytt för {join_names(old)}. Ska vi wuppa?"), "wow"
+    joke = (" " + random.choice(L(JOKES_EN, JOKES_SV))) if width() >= 80 else ""    # narrow window: keep the bubble short
+    return L("Hi! I'm Wuppa. The whole troupe is home and up to date.", "Hej! Jag är Wuppa. Hela truppen är hemma och fräsch.") + joke, "happy"
 
 
 def join_names(names):
-    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " och " + names[-1]
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + L(" and ", " och ") + names[-1]
 
 
 # ───────────────────────────── kommandon ─────────────────────────────
@@ -557,71 +635,78 @@ def pick_names(names, default):
         return default
     bad = [n for n in names if n.lower() not in BY_KEY]
     if bad:
-        raise SystemExit(f"  okänd kusin: {', '.join(bad)} (välj bland uppa, puppa, muppa, euppa, ruppa)")
+        raise SystemExit(L(f"  unknown tool: {', '.join(bad)} (choose from uppa, puppa, muppa, euppa, ruppa)",
+                           f"  okänt verktyg: {', '.join(bad)} (välj bland uppa, puppa, muppa, euppa, ruppa)"))
     return [BY_KEY[n.lower()] for n in dict.fromkeys(names)]
 
 
-def do_install(targets, verb="Installerar"):
-    """Kör kusinernas egna installers en i taget. Returnerar listan som misslyckades."""
+def do_install(targets, update=False):
+    """Run each tool's own installer, one at a time. Returns the ones that failed."""
     failed = []
     for k in targets:
         print()
+        verb = L("Updating", "Uppdaterar") if update else L("Installing", "Installerar")
         print(fit(f"  {c(k.color, bold(k.logo))} {bold(verb + ' ' + k.name)}"))
         if not run_installer(k.key):
             failed.append(k)
-            print("  " + red("✘") + f" {k.name} gick inte att {'installera' if verb == 'Installerar' else 'uppdatera'}.")
+            print("  " + red("✘") + (L(f" {k.name} could not be updated.", f" {k.name} gick inte att uppdatera.") if update
+                                     else L(f" {k.name} could not be installed.", f" {k.name} gick inte att installera.")))
     return failed
 
 
-def report(done, failed, what):
+def report(done, failed, update=False):
     if failed:
-        say(f"{join_names([k.name for k in failed])} strulade. Resten gick bra. Kör samma kommando igen om en stund.",
+        say(L(f"{join_names([k.name for k in failed])} had trouble. The rest went fine. Run the same command again in a while.",
+              f"{join_names([k.name for k in failed])} strulade. Resten gick bra. Kör samma kommando igen om en stund."),
             "sad")
         return 1
     if done:
-        celebrate(f"Klart! {join_names([k.name for k in done])} är {what}.")
+        n = join_names([k.name for k in done])
+        celebrate(L(f"Done! {n} {'is' if len(done) == 1 else 'are'} {'updated' if update else 'installed'}.",
+                    f"Klart! {n} är {('uppdaterad' if len(done) == 1 else 'uppdaterade') if update else ('installerad' if len(done) == 1 else 'installerade')}."))
     return 0
 
 
 def cmd_status(a):
-    with Spinner("Ringer runt till kusinerna…"):
+    with Spinner(L("Calling round the troupe…", "Ringer runt till truppen…")):
         lat = scan()
     print()
     for l in status_lines(lat):
         print(fit(l))
     offline = all(k.latest is None for k in COUSINS)
-    print(dim(f"\n  wuppa {VERSION}") + (dim(" · kunde inte nå GitHub") if offline else ""))
+    print(dim(f"\n  wuppa {VERSION}") + (dim(L(" · could not reach GitHub", " · kunde inte nå GitHub")) if offline else ""))
     return 0
 
 
 def cmd_install(a):
-    with Spinner("Kollar vilka kusiner som redan bor här…"):
+    with Spinner(L("Checking which tools are already here…", "Kollar vilka verktyg som redan finns här…")):
         scan()
     targets = pick_names(a.names, [k for k in COUSINS if not k.installed])
     if not a.names:
         targets = [k for k in targets if not k.installed]
     if not targets:
-        say("Alla kusinerna är redan installerade. Vill du uppdatera dem: wuppa update", "proud")
+        say(L("Every tool is already installed. To update them: wuppa update", "Alla verktyg är redan installerade. Vill du uppdatera dem: wuppa update"), "proud")
         return 0
     failed = do_install(targets)
-    return report([k for k in targets if k not in failed], failed, "installerade")
+    return report([k for k in targets if k not in failed], failed)
 
 
 def cmd_update(a):
-    with Spinner("Frågar GitHub om det finns nytt…"):
+    with Spinner(L("Asking GitHub for news…", "Frågar GitHub om det finns nytt…")):
         lat = scan()
     chosen = pick_names(a.names, COUSINS)
     targets = [k for k in chosen if k.outdated or (a.names and k.installed and a.force)]
     missing = [k for k in chosen if not k.installed]
     self_new = newer(lat, VERSION) and not a.names
     if not targets and not self_new:
-        msg = "Allt är redan senaste versionen."
+        msg = L("Everything is already the latest version.", "Allt är redan senaste versionen.")
         if missing:
-            msg += f" {join_names([k.name for k in missing])} är inte installerad: wuppa install"
+            msg += L(f" {join_names([k.name for k in missing])} not installed: wuppa install",
+                     f" {join_names([k.name for k in missing])} är inte installerad: wuppa install")
         say(msg, "proud")
         return 0
-    failed = do_install(targets, "Uppdaterar")
-    rc = report([k for k in targets if k not in failed], failed, "uppdaterade")
+    failed = do_install(targets, update=True)
+    rc = report([k for k in targets if k not in failed], failed, update=True)
     if self_new:
         rc = cmd_self_update(a) or rc
     return rc
@@ -631,7 +716,7 @@ def yes(question, default=False):
     if not sys.stdin.isatty():
         return default
     try:
-        a = input(fit(f"  {accent('?')} {bold(question)} {dim('[J/n]' if default else '[j/N]')}") + " ").strip().lower()
+        a = input(fit(f"  {accent('?')} {bold(question)} {dim(L('[Y/n]', '[J/n]') if default else L('[y/N]', '[j/N]'))}") + " ").strip().lower()
     except (EOFError, KeyboardInterrupt):
         print()
         return False
@@ -651,37 +736,41 @@ def do_uninstall(targets, me=False, sure=False):
     Frågar en gång för alla (om inte sure). -> 0/1."""
     names = [k.name for k in targets] + (["Wuppa"] if me else [])
     if not names:
-        say("Inget av det är installerat här. Inget att ta bort.", "happy")
+        say(L("None of that is installed here. Nothing to remove.", "Inget av det är installerat här. Inget att ta bort."), "happy")
         return 0
     if not sure:
-        say(f"Avinstallera {join_names(names)}? Dina data (tenants, mallar, cache och rapporter) behålls.", "worry")
-        if not yes("Avinstallera?"):
-            say("Okej, inget borttaget.", "happy")
+        say(L(f"Uninstall {join_names(names)}? Your data (tenants, templates, cache and reports) is kept.",
+              f"Avinstallera {join_names(names)}? Dina data (tenants, mallar, cache och rapporter) behålls."), "worry")
+        if not yes(L("Uninstall?", "Avinstallera?")):
+            say(L("Okay, nothing removed.", "Okej, inget borttaget."), "happy")
             return 0
     failed = []
     for k in targets:
         print()
-        print(fit(f"  {c(k.color, bold(k.logo))} {bold('Avinstallerar ' + k.name)}"))
+        print(fit(f"  {c(k.color, bold(k.logo))} {bold(L('Uninstalling ', 'Avinstallerar ') + k.name)}"))
         if not run_installer(k.key, {k.key.upper() + "_YES": "1"}, kind="uninstall"):
             failed.append(k)
-            print("  " + red("✘") + f" {k.name} gick inte att avinstallera.")
+            print("  " + red("✘") + L(f" {k.name} could not be uninstalled.", f" {k.name} gick inte att avinstallera."))
     if failed:
-        say(f"{join_names([k.name for k in failed])} gick inte att avinstallera. Resten är borta.", "sad")
+        say(L(f"{join_names([k.name for k in failed])} could not be uninstalled. The rest is gone.",
+              f"{join_names([k.name for k in failed])} gick inte att avinstallera. Resten är borta."), "sad")
     if me:
         print()
-        print(fit(f"  {accent(bold(LOGO))} {bold('Avinstallerar Wuppa')}"))
+        print(fit(f"  {accent(bold(LOGO))} {bold(L('Uninstalling Wuppa', 'Avinstallerar Wuppa'))}"))
         # WUPPA_YES utan WUPPA_ALL: släkten är redan hanterad ovan
         ok = run_installer("wuppa", {"WUPPA_YES": "1", "WUPPA_ALL": ""}, kind="uninstall")
         if ok:
-            say("Hej då! Allt är borttaget. Installationsraden tar tillbaka allt när du vill.", "happy")
+            say(L("Bye! Everything is removed. The install line brings it all back whenever you like.",
+                  "Hej då! Allt är borttaget. Installationsraden tar tillbaka allt när du vill."), "happy")
         return 0 if ok and not failed else 1
     if not failed:
-        say(f"Klart! {join_names([k.name for k in targets])} är avinstallerad{'e' if len(targets) > 1 else ''}.", "proud")
+        say(L(f"Done! {join_names([k.name for k in targets])} {'is' if len(targets) == 1 else 'are'} uninstalled.",
+              f"Klart! {join_names([k.name for k in targets])} är avinstallerad{'e' if len(targets) > 1 else ''}."), "proud")
     return 1 if failed else 0
 
 
 def cmd_uninstall(a):
-    with Spinner("Kollar vad som är installerat…"):
+    with Spinner(L("Checking what is installed…", "Kollar vad som är installerat…")):
         scan()
     if a.names:
         targets = [k for k in pick_names([n for n in a.names if n.lower() != "wuppa"], []) if standalone(k)]
@@ -691,7 +780,7 @@ def cmd_uninstall(a):
 
 def cmd_self_update(a):
     print()
-    print(fit(f"  {accent(bold(LOGO))} {bold('Uppdaterar Wuppa')}"))
+    print(fit(f"  {accent(bold(LOGO))} {bold(L('Updating Wuppa', 'Uppdaterar Wuppa'))}"))
     me = Path(os.path.realpath(__file__))
     if (me.parent / ".git").exists():
         rc, out, err = run(["git", "-C", str(me.parent), "pull", "--ff-only"], timeout=120)
@@ -699,14 +788,15 @@ def cmd_self_update(a):
                                                                                or [""])[-1])
         return rc
     ok = run_installer("wuppa", env={"WUPPA_ONLY": "1"})      # bara Wuppa, inte kusinerna
-    print("  " + (green("✔ Wuppa uppdaterad.") if ok else red("✘ Wuppa kunde inte uppdateras.")))
+    print("  " + (green(L("✔ Wuppa updated.", "✔ Wuppa uppdaterad.")) if ok else red(L("✘ Wuppa could not be updated.", "✘ Wuppa kunde inte uppdateras."))))
     return 0 if ok else 1
 
 
 def cmd_run(name, args):
     exe = which(name)
     if not exe:
-        say(f"{BY_KEY[name].name} är inte installerad än. Kör: wuppa install {name}", "worry")
+        say(L(f"{BY_KEY[name].name} is not installed yet. Run: wuppa install {name}",
+              f"{BY_KEY[name].name} är inte installerad än. Kör: wuppa install {name}"), "worry")
         return 1
     try:
         return subprocess.call([exe] + list(args))
@@ -751,7 +841,7 @@ def choose(rows, msg="", mood="happy", status=None, title=""):
         top = min(max(top, pos - room + 1), pos)
         top = max(0, min(top, max(0, len(rows) - room)))
         if top > 0:
-            lines.append(dim("     ↑ fler"))
+            lines.append(dim(L("     ↑ more", "     ↑ fler")))
         for k in range(top, min(len(rows), top + room)):
             r = rows[k]
             if isinstance(r, tuple):
@@ -769,9 +859,9 @@ def choose(rows, msg="", mood="happy", status=None, title=""):
                     line += dim(r["hint"])
             lines.append(line)
         if top + room < len(rows):
-            lines.append(dim("     ↓ fler"))
+            lines.append(dim(L("     ↓ more", "     ↓ fler")))
         lines.append("")
-        lines.append(dim("   " + ("↑/↓ · enter · siffra väljer · q avsluta" if w >= 50 else "↑↓ enter · q")))
+        lines.append(dim("   " + (L("↑/↓ · enter · number picks · q quit", "↑/↓ · enter · siffra väljer · q avsluta") if w >= 50 else "↑↓ enter · q")))
         live.draw(lines)
 
     choice, cur_mood, size = None, None, None
@@ -816,34 +906,41 @@ def menu():
         return cmd_status(Args())
     if TTY:
         sys.stdout.write("\033[H\033[2J")
-    with Spinner("Ringer runt till kusinerna…"):
+    with Spinner(L("Calling round the troupe…", "Ringer runt till truppen…")):
         lat = scan()
     while True:
         msg, mood = greeting(lat)
         missing = [k for k in COUSINS if not k.installed]
         old = [k for k in COUSINS if k.outdated]
-        rows = [("head", "Starta")]
+        rows = [("head", L("Start", "Starta"))]
         for k in COUSINS:
             if k.installed:
                 rows.append(dict(label=f"{k.name}", hint=k.desc, value=("run", k.key)))
-        rows.append(("head", "Paketet"))
+        rows.append(("head", L("The package", "Paketet")))
         if old or newer(lat, VERSION):
             n = len(old) + (1 if newer(lat, VERSION) else 0)
-            rows.append(dict(label="Uppdatera allt", hint=f"{n} kan uppdateras", value=("update",), key="u"))
+            rows.append(dict(label=L("Update all", "Uppdatera allt"), hint=L(f"{n} can be updated", f"{n} kan uppdateras"),
+                             value=("update",), key="u"))
         if missing:
-            rows.append(dict(label="Installera " + ("alla" if len(missing) == len(COUSINS) else join_names(
-                [k.name for k in missing])), hint="kör kusinernas egna installers", value=("install",), key="i"))
+            rows.append(dict(label=(L("Install all", "Installera alla") if len(missing) == len(COUSINS) else
+                                    L("Install ", "Installera ") + join_names([k.name for k in missing])),
+                             hint=L("runs each tool's own installer", "kör verktygens egna installers"), value=("install",), key="i"))
         for k in COUSINS:
             if k.installed:
-                rows.append(dict(label=f"Uppdatera {k.name}", hint=(f"{k.current} → {k.latest}" if k.outdated
-                                                                    else "installera om senaste"),
+                rows.append(dict(label=L(f"Update {k.name}", f"Uppdatera {k.name}"),
+                                 hint=(f"{k.current} → {k.latest}" if k.outdated else L("reinstall latest", "installera om senaste")),
                                  value=("one", k.key)))
-        rows.append(dict(label="Uppdatera Wuppa", hint=(f"{VERSION} → {lat}" if newer(lat, VERSION)
-                                                        else "redan senaste"), value=("self",)))
-        rows.append(dict(label="Avinstallera…", hint="ett verktyg, eller allt (dina data behålls)", value=("uninstall",),
-                         key="a"))
-        rows.append(dict(label="Skanna om", value=("rescan",), key="r"))
-        rows.append(dict(label="Avsluta", value=("quit",), key="q"))
+        rows.append(dict(label=L("Update Wuppa", "Uppdatera Wuppa"), hint=(f"{VERSION} → {lat}" if newer(lat, VERSION)
+                                                                           else L("already latest", "redan senaste")),
+                         value=("self",)))
+        rows.append(dict(label=L("Uninstall…", "Avinstallera…"), hint=L("one tool, or everything (your data is kept)",
+                                                                      "ett verktyg, eller allt (dina data behålls)"),
+                         value=("uninstall",), key="a"))
+        rows.append(dict(label="Language: " + ("English" if LANG == "en" else "Svenska"),
+                         hint=L("switch to Svenska – for the whole troupe", "byt till English – för hela truppen"),
+                         value=("lang",), key="l"))
+        rows.append(dict(label=L("Rescan", "Skanna om"), value=("rescan",), key="r"))
+        rows.append(dict(label=L("Quit", "Avsluta"), value=("quit",), key="q"))
         v = choose(rows, msg, mood, status=lambda: status_lines(lat, desc=False))
         if v is None or v[0] == "quit":
             return 0
@@ -853,29 +950,41 @@ def menu():
         if v[0] == "run":
             cmd_run(v[1], [])
             DIRTY = False
+        elif v[0] == "lang":
+            set_lang("sv" if LANG == "en" else "en")
+            for k, d in zip(COUSINS, [L("keeps your PowerShell and Microsoft tools up to date", "håller PowerShell- och Microsoft-verktygen uppdaterade"),
+                                       L("Microsoft 365 admin in PowerShell in a few keystrokes", "M365-admin i PowerShell med några knapptryck"),
+                                       L("moves a PC from on-premises AD to Entra ID", "flyttar en dator från lokal AD till Entra ID"),
+                                       L("everything in Entra ID: users, groups, devices, apps and roles", "allt i Entra ID: användare, grupper, enheter, appar och roller"),
+                                       L("the app: every tool in one window, with buttons and forms", "appen: alla verktyg i ett fönster, med knappar och formulär")]):
+                k.desc = d
+            continue
         elif v[0] == "update":
             a = Args()
-            failed = do_install(old, "Uppdaterar")
-            report([k for k in old if k not in failed], failed, "uppdaterade")
+            failed = do_install(old, update=True)
+            report([k for k in old if k not in failed], failed, update=True)
             if newer(lat, VERSION):
                 return restart_after_self_update(a)
         elif v[0] == "install":
             failed = do_install(missing)
-            report([k for k in missing if k not in failed], failed, "installerade")
+            report([k for k in missing if k not in failed], failed)
         elif v[0] == "one":
             k = BY_KEY[v[1]]
-            failed = do_install([k], "Uppdaterar")
-            report([k] if not failed else [], failed, "uppdaterad")
+            failed = do_install([k], update=True)
+            report([k] if not failed else [], failed, update=True)
         elif v[0] == "self":
             return restart_after_self_update(Args())
         elif v[0] == "uninstall":
             inst = [k for k in COUSINS if standalone(k)]
-            urows = [dict(label="Allt", hint=join_names([k.name for k in inst] + ["Wuppa"]), value=("all",))]
+            urows = [dict(label=L("Everything", "Allt"), hint=join_names([k.name for k in inst] + ["Wuppa"]), value=("all",))]
             urows += [dict(label=k.name, hint=k.desc, value=("one", k.key)) for k in inst]
-            urows += [dict(label="Bara Wuppa", hint="kusinerna finns kvar och går att köra som vanligt", value=("me",)),
-                      dict(label="Tillbaka", value=("back",), key="q")]
-            u = choose(urows, "Vad ska bort? Dina data (tenants, mallar, cache och rapporter) behålls.", "worry",
-                       title="Avinstallera")
+            urows += [dict(label=L("Only Wuppa", "Bara Wuppa"), hint=L("the tools stay and run as usual",
+                                                                       "verktygen finns kvar och går att köra som vanligt"),
+                           value=("me",)),
+                      dict(label=L("Back", "Tillbaka"), value=("back",), key="q")]
+            u = choose(urows, L("What should go? Your data (tenants, templates, cache and reports) is kept.",
+                                "Vad ska bort? Dina data (tenants, mallar, cache och rapporter) behålls."), "worry",
+                       title=L("Uninstall", "Avinstallera"))
             if u and u[0] != "back":
                 if TTY:
                     sys.stdout.write("\033[H\033[2J")
@@ -890,7 +999,7 @@ def menu():
                 else:
                     do_uninstall([BY_KEY[u[1]]])
                 pause()
-        with Spinner("Räknar in kusinerna igen…"):
+        with Spinner(L("Counting the troupe again…", "Räknar in truppen igen…")):
             lat = scan()
 
 
@@ -909,7 +1018,7 @@ def restart_after_self_update(a):
     new = file_version(me)
     if new and new != VERSION:
         print()
-        say(f"Startar om som wuppa {new}…", "proud")
+        say(L(f"Restarting as wuppa {new}…", f"Startar om som wuppa {new}…"), "proud")
         time.sleep(0.8)
         os.execv(sys.executable, [sys.executable, me])
     pause()
@@ -929,7 +1038,14 @@ def main(argv=None):
         print(f"wuppa {VERSION}")
         return 0
     if argv[:1] in (["-h"], ["--help"], ["help"]):
-        print(__doc__.strip())
+        print(L(__doc__, DOC_SV).strip())
+        return 0
+    if argv[:1] in (["lang"], ["språk"], ["sprak"]):
+        if len(argv) > 1 and argv[1].lower()[:2] in ("en", "sv"):
+            set_lang(argv[1].lower()[:2])
+            print(L("  Language: English (for the whole troupe)", "  Språk: svenska (för hela truppen)"))
+        else:
+            print(L(f"  Language: English · change with: wuppa lang sv", f"  Språk: svenska · byt med: wuppa lang en"))
         return 0
     a = Args()
     a.force = any(x in ("-f", "--force", "-y", "--ja", "--yes") for x in argv)
@@ -940,10 +1056,11 @@ def main(argv=None):
             return menu()
         fn = {"status": cmd_status, "install": cmd_install, "update": cmd_update, "upgrade": cmd_update,
               "self-update": cmd_self_update,
-              "uninstall": cmd_uninstall, "avinstallera": cmd_uninstall}.get(cmd)
+              "uninstall": cmd_uninstall, "avinstallera": cmd_uninstall, "installera": cmd_install,
+              "uppdatera": cmd_update}.get(cmd)
         if not fn:
-            print(f"  okänt kommando: {cmd}\n")
-            print(__doc__.strip())
+            print(L(f"  unknown command: {cmd}\n", f"  okänt kommando: {cmd}\n"))
+            print(L(__doc__, DOC_SV).strip())
             return 2
         return fn(a)
     except KeyboardInterrupt:

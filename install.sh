@@ -6,6 +6,12 @@
 # Styr källan med WUPPA_REPO=ägare/repo och WUPPA_BRANCH=gren. Kusinerna läser UPPA_REPO, PUPPA_REPO osv.
 # WUPPA_ONLY=1 installerar bara Wuppa. WUPPA_SKIP="muppa puppa" hoppar över kusiner.
 set -eu
+# Language: TRUPPA_LANG, else ~/.truppa/config.json (shared by the whole troupe), else English
+TL="${TRUPPA_LANG:-}"
+if [ -z "$TL" ] && [ -f "$HOME/.truppa/config.json" ]; then
+  TL="$(sed -n 's/.*"lang"[^"]*"\([a-z]*\)".*/\1/p' "$HOME/.truppa/config.json" 2>/dev/null | head -n 1)"
+fi
+t() { case "$TL" in sv*) printf '%s' "$2" ;; *) printf '%s' "$1" ;; esac; }
 START="$(date +%s)"
 
 REPO="${WUPPA_REPO:-pipebreak33/wuppa}"
@@ -28,8 +34,8 @@ for c in python3 python; do
 done
 if [ -z "$PY" ]; then
   case "$(uname -s)" in
-    Darwin) die "Python 3.8+ saknas. Kör: xcode-select --install   (eller: brew install python)";;
-    *)      die "Python 3.8+ saknas. Kör: sudo apt install python3   (eller dnf/pacman motsvarande)";;
+    Darwin) die "$(t "Python 3.8+ is missing. Run: xcode-select --install   (or: brew install python)" "Python 3.8+ saknas. Kör: xcode-select --install   (eller: brew install python)")";;
+    *)      die "$(t "Python 3.8+ is missing. Run: sudo apt install python3   (or the dnf/pacman equivalent)" "Python 3.8+ saknas. Kör: sudo apt install python3   (eller dnf/pacman motsvarande)")";;
   esac
 fi
 
@@ -41,25 +47,25 @@ case "$0" in
     HERE="$(cd "$(dirname "$0")" 2>/dev/null && pwd || true)"
     if [ -n "$HERE" ] && [ -f "$HERE/wuppa.py" ] && [ "${WUPPA_FROM_WEB:-}" != "1" ]; then
       SRC="$HERE"; LOCAL="$HERE"
-      say "Installerar från $HERE"
+      say "$(t "Installing from $HERE" "Installerar från $HERE")"
     fi;;
 esac
 TMP=""
 cleanup() { if [ -n "$TMP" ]; then rm -rf "$TMP"; fi; return 0; }
 trap cleanup EXIT
 if [ -z "$SRC" ]; then
-  command -v curl >/dev/null 2>&1 || die "curl saknas."
-  command -v tar >/dev/null 2>&1 || die "tar saknas."
+  command -v curl >/dev/null 2>&1 || die "$(t "curl is missing." "curl saknas.")"
+  command -v tar >/dev/null 2>&1 || die "$(t "tar is missing." "tar saknas.")"
   TMP="$(mktemp -d)"
-  say "Hämtar Wuppa från github.com/$REPO ($BRANCH)"
+  say "$(t "Fetching Wuppa from github.com/$REPO ($BRANCH)" "Hämtar Wuppa från github.com/$REPO ($BRANCH)")"
   curl -fsSL "https://github.com/$REPO/archive/$BRANCH.tar.gz" -o "$TMP/wuppa.tar.gz" \
-    || die "nedladdningen misslyckades – kolla nätet eller WUPPA_REPO/WUPPA_BRANCH"
-  tar -xzf "$TMP/wuppa.tar.gz" -C "$TMP" || die "kunde inte packa upp arkivet"
+    || die "$(t "the download failed: check the network or WUPPA_REPO/WUPPA_BRANCH" "nedladdningen misslyckades – kolla nätet eller WUPPA_REPO/WUPPA_BRANCH")"
+  tar -xzf "$TMP/wuppa.tar.gz" -C "$TMP" || die "$(t "could not unpack the archive" "kunde inte packa upp arkivet")"
   SRC="$(find "$TMP" -maxdepth 2 -name wuppa.py -exec dirname {} \; | head -n 1)"
-  [ -n "$SRC" ] || die "arkivet innehåller inte Wuppa"
+  [ -n "$SRC" ] || die "$(t "the archive does not contain Wuppa" "arkivet innehåller inte Wuppa")"
 fi
 "$PY" -c 'import ast,sys; ast.parse(open(sys.argv[1],encoding="utf-8").read())' "$SRC/wuppa.py" \
-  || die "wuppa.py är trasig"
+  || die "$(t "wuppa.py is broken" "wuppa.py är trasig")"
 
 # 3. Byt ut programmet (~/.wuppa/app)
 mkdir -p "$DIR" "$BIN"
@@ -88,11 +94,11 @@ case ":$PATH:" in
       *)      RC="$HOME/.profile" ;;
     esac
     grep -qs '.local/bin' "$RC" 2>/dev/null || printf '\nexport PATH="$HOME/.local/bin:$PATH"\n' >> "$RC"
-    say "La till ~/.local/bin i PATH ($RC). Öppna en ny terminal."
+    say "$(t "Added ~/.local/bin to PATH ($RC). Open a new terminal." "La till ~/.local/bin i PATH ($RC). Öppna en ny terminal.")"
     ;;
 esac
 VER="$("$PY" "$APP/wuppa.py" --version 2>/dev/null || echo wuppa)"
-printf '  \033[38;5;42m✔\033[0m %s installerad.\n' "$VER"
+printf "$(t '  \033[38;5;42m✔\033[0m %s installed.\n' '  \033[38;5;42m✔\033[0m %s installerad.\n')" "$VER"
 
 # 6. Kusinerna: kör var och ens egen installer (installerar eller uppdaterar)
 FAILED=""
@@ -103,16 +109,16 @@ if [ "${WUPPA_ONLY:-}" != "1" ]; then
     printf '\n'
     if [ -n "$LOCAL" ] && [ -f "$LOCAL/../$name/install.sh" ] && \
        { [ -f "$LOCAL/../$name/$name.py" ] || [ -f "$LOCAL/../$name/Cargo.toml" ]; }; then
-      say "$name från $(cd "$LOCAL/../$name" && pwd)"
+      say "$(t "$name from $(cd "$LOCAL/../$name" && pwd)" "$name från $(cd "$LOCAL/../$name" && pwd)")"
       sh "$LOCAL/../$name/install.sh" || FAILED="$FAILED $name"
     else
-      say "$name från github.com/$OWNER/$name"
+      say "$(t "$name from github.com/$OWNER/$name" "$name från github.com/$OWNER/$name")"
       [ -n "$TMP" ] || TMP="$(mktemp -d)"
       # Ladda ner först: med "curl | sh" skulle ett nätfel se ut som en lyckad installation
       if curl -fsSL "https://raw.githubusercontent.com/$OWNER/$name/main/install.sh" -o "$TMP/$name-setup.sh"; then
         sh "$TMP/$name-setup.sh" || FAILED="$FAILED $name"
       else
-        warn "kunde inte hämta $name"; FAILED="$FAILED $name"
+        warn "$(t "could not fetch $name" "kunde inte hämta $name")"; FAILED="$FAILED $name"
       fi
     fi
   done
@@ -121,9 +127,9 @@ fi
 printf '\n'
 SECS=$(( $(date +%s) - START )); if [ "$SECS" -ge 60 ]; then TOOK="$((SECS / 60)) min $((SECS % 60)) s"; else TOOK="$SECS s"; fi
 if [ -n "$FAILED" ]; then
-  warn "Det här gick inte:$FAILED ($TOOK). Kör samma rad igen om en stund, eller: wuppa install$FAILED"
-  printf '  Resten är klart. Kör: \033[1mwuppa\033[0m\n\n'
+  warn "$(t "This did not work:$FAILED ($TOOK). Run the same line again in a while, or: wuppa install$FAILED" "Det här gick inte:$FAILED ($TOOK). Kör samma rad igen om en stund, eller: wuppa install$FAILED")"
+  printf "$(t '  The rest is done. Run: \033[1mwuppa\033[0m\n\n' '  Resten är klart. Kör: \033[1mwuppa\033[0m\n\n')"
   exit 1
 fi
-printf '  \033[38;5;220mW›\033[0m Klart på %s! Kör \033[1mwuppa\033[0m för menyn, eller uppa, puppa, muppa, euppa och ruppa direkt.\n' "$TOOK"
-printf '  \033[2mAvinstallera: curl -fsSL https://raw.githubusercontent.com/pipebreak33/wuppa/main/uninstall.sh | sh   (frågar om hela släkten)\033[0m\n\n'
+printf "$(t '  \033[38;5;220mW›\033[0m Done in %s! Run \033[1mwuppa\033[0m for the menu, or uppa, puppa, muppa, euppa and ruppa directly.\n' '  \033[38;5;220mW›\033[0m Klart på %s! Kör \033[1mwuppa\033[0m för menyn, eller uppa, puppa, muppa, euppa och ruppa direkt.\n')" "$TOOK"
+printf "$(t '  \033[2mUninstall: curl -fsSL https://raw.githubusercontent.com/pipebreak33/wuppa/main/uninstall.sh | sh   (asks about the whole troupe)\033[0m\n\n' '  \033[2mAvinstallera: curl -fsSL https://raw.githubusercontent.com/pipebreak33/wuppa/main/uninstall.sh | sh   (frågar om hela släkten)\033[0m\n\n')"

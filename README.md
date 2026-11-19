@@ -1,26 +1,28 @@
 # Wuppa
 
+**English** · [Svenska](README.sv.md)
+
 <p align="center">
-  <img src="assets/wuppa.svg" alt="Wuppa: Hej! Jag är Wuppa." width="720">
+  <img src="assets/wuppa.svg" alt="Wuppa: Hi! I'm Wuppa." width="720">
 </p>
 
-**W**hole **U**ppa **P**uppa **P**ackage. Installera Wuppa och du får hela släkten på en gång:
+**W**hole **U**ppa **P**uppa **P**ackage. Install Wuppa and you get the whole troupe at once:
 
 | | | |
 |---|---|---|
-| **[Uppa](https://github.com/pipebreak33/uppa)** | `uppa` | håller dina PowerShell-moduler och Microsoft-CLI:er uppdaterade |
-| **[Puppa](https://github.com/pipebreak33/puppa)** | `puppa` | M365-adminuppgifter i PowerShell med några knapptryck |
-| **[Muppa](https://github.com/pipebreak33/muppa)** | `muppa` | flyttar en dator från lokal AD till Entra ID: skript och checklista |
-| **[Euppa](https://github.com/pipebreak33/euppa)** | `euppa` | allt i Entra ID: användare, grupper, enheter, appar, roller och villkorlig åtkomst |
-| **[Ruppa](https://github.com/pipebreak33/ruppa)** | `ruppa` | appen: alla kusiner i ett fönster, med knappar och formulär |
+| **[Uppa](https://github.com/pipebreak33/uppa)** | `uppa` | keeps your PowerShell modules and Microsoft CLIs up to date |
+| **[Puppa](https://github.com/pipebreak33/puppa)** | `puppa` | Microsoft 365 admin tasks in PowerShell in a few keystrokes |
+| **[Muppa](https://github.com/pipebreak33/muppa)** | `muppa` | moves a computer from on-premises AD to Entra ID: a script and a checklist |
+| **[Euppa](https://github.com/pipebreak33/euppa)** | `euppa` | everything in Entra ID: users, groups, devices, apps, roles and Conditional Access |
+| **[Ruppa](https://github.com/pipebreak33/ruppa)** | `ruppa` | the app: every tool in one window, with buttons and forms |
 
-Varje verktyg installeras med sin egen installer, så efteråt går de att köra fristående – `uppa`, `puppa`,
-`muppa`, `euppa` och `ruppa` fungerar precis som om du installerat dem ett och ett.
+Each tool is installed with its own installer, so afterwards they run standalone: `uppa`, `puppa`,
+`muppa`, `euppa` and `ruppa` work exactly as if you had installed them one by one.
 
-Kommandot `wuppa` är en gemensam meny för alla: starta en kusin, se vad som kan uppdateras och uppdatera allt med
-en knapp. Maskoten är ett W med ögon. Muppa och Euppa kom inte med i förkortningen, men har bästa platserna i menyn.
+The `wuppa` command is a shared menu for all of them: start a tool, see what can be updated and update everything with
+one key. The mascot is a W with eyes. Muppa and Euppa didn't make it into the acronym, but they get the best seats in the menu.
 
-## Installera (eller uppdatera allt – kör samma rad igen)
+## Install (or update everything: run the same line again)
 
 **Windows** (PowerShell):
 
@@ -34,21 +36,20 @@ irm https://raw.githubusercontent.com/pipebreak33/wuppa/main/install.ps1 | iex
 curl -fsSL https://raw.githubusercontent.com/pipebreak33/wuppa/main/install.sh | sh
 ```
 
-Installern hittar (eller på Windows installerar) Python 3.8+, lägger Wuppa i `~/.wuppa/app` och skapar kommandot
-`wuppa`. Sedan kör den Uppas, Puppas, Muppas, Euppas och Ruppas egna installers, så att varje kusin hamnar precis där den annars
-skulle ha hamnat (`~/.uppa`, `~/.puppa`, `~/.muppa`, `~/.euppa`, `~/.ruppa`). Går en kusin inte att installera fortsätter de andra.
+The installer finds (or on Windows installs) Python 3.8+, puts Wuppa in `~/.wuppa/app` and creates the command
+`wuppa`. Then it runs the installers of Uppa, Puppa, Muppa, Euppa and Ruppa, so that every tool ends up exactly where it
+otherwise would (`~/.uppa`, `~/.puppa`, `~/.muppa`, `~/.euppa`, `~/.ruppa`). If one tool cannot be installed, the others carry on.
 
-| Variabel | |
+| Variable | |
 |---|---|
-| `WUPPA_ONLY=1` | installera bara Wuppa |
-| `WUPPA_SKIP="muppa puppa"` | hoppa över kusiner |
-| `WUPPA_REPO` / `WUPPA_BRANCH` | annan källa för Wuppa (kusinerna läser `UPPA_REPO`, `PUPPA_REPO` osv.) |
+| `WUPPA_ONLY=1` | install only Wuppa |
+| `WUPPA_SKIP="muppa puppa"` | skip tools |
+| `WUPPA_REPO` / `WUPPA_BRANCH` | another source for Wuppa (the tools read `UPPA_REPO`, `PUPPA_REPO` and so on) |
 
-Från en lokal kopia: `./install.sh` / `./install.ps1`. Ligger `uppa`, `puppa`, `muppa`, `euppa` och `ruppa` utcheckade bredvid
-`wuppa` installeras de därifrån.
+From a local copy: `./install.sh` / `./install.ps1`. If `uppa`, `puppa`, `muppa`, `euppa` and `ruppa` are checked out next to
+`wuppa`, they are installed from there.
 
-
-## Avinstallera
+## Uninstall
 
 **Windows** (PowerShell):
 
@@ -62,35 +63,42 @@ irm https://raw.githubusercontent.com/pipebreak33/wuppa/main/uninstall.ps1 | iex
 curl -fsSL https://raw.githubusercontent.com/pipebreak33/wuppa/main/uninstall.sh | sh
 ```
 
-Tar bort programmet och kommandot `wuppa` (och PATH-posten på Windows). Det behåller Wuppas inställningar i `~/.wuppa`.
-`WUPPA_PURGE=1` tar bort även dina data, och `WUPPA_YES=1` hoppar över frågan.
+Removes the program and the `wuppa` command (and the PATH entry on Windows). Wuppa's settings in `~/.wuppa` are kept.
+`WUPPA_PURGE=1` removes your data too, and `WUPPA_YES=1` skips the question.
 
-Inifrån Wuppa: `wuppa uninstall` (allt), `wuppa uninstall puppa euppa` (bara de), eller *Avinstallera…* i menyn.
+From inside Wuppa: `wuppa uninstall` (everything), `wuppa uninstall puppa euppa` (only those), or *Uninstall…* in the menu.
 
-Har Wuppa installerat släkten frågar avinstallationen om Uppa, Puppa, Muppa, Euppa och Ruppa ska bort också (var och en avinstalleras med sitt eget skript, deras data behålls). `WUPPA_ALL=1` svarar ja.
+If Wuppa installed the troupe, the uninstaller asks whether Uppa, Puppa, Muppa, Euppa and Ruppa should go too (each one is uninstalled with its own script, and their data is kept). `WUPPA_ALL=1` answers yes.
 
-## Kommandon
+## Language
+
+Every tool speaks **English** by default and **Swedish** on request. `wuppa lang sv` (or the **Language** row in the menu)
+switches the whole troupe at once, and `wuppa lang en` switches back. The setting lives in `~/.truppa/config.json`,
+and the installers and uninstallers follow it too.
+
+## Commands
 
 | | |
 |---|---|
-| `wuppa` | menyn |
-| `wuppa status` | vilka kusiner som finns och om de kan uppdateras |
-| `wuppa install [uppa puppa muppa euppa ruppa]` | installera det som saknas |
-| `wuppa update [uppa puppa muppa euppa ruppa]` | uppdatera det som har en nyare version, och Wuppa själv |
-| `wuppa uppa …` / `wuppa puppa …` / `wuppa muppa …` / `wuppa euppa …` / `wuppa ruppa …` | kör en kusin, allt efter namnet skickas vidare |
-| `wuppa uninstall [namn …]` | avinstallera verktyg med deras egna skript; utan namn allt, även Wuppa (`-y` svarar ja). Dina data behålls |
-| `wuppa self-update` | uppdatera bara Wuppa |
-| `--no-anim` | inga animationer (stängs också av av `NO_COLOR` och när utdata pipas) |
+| `wuppa` | the menu |
+| `wuppa status` | which tools are installed and whether they can be updated |
+| `wuppa install [uppa puppa muppa euppa ruppa]` | install what is missing |
+| `wuppa update [uppa puppa muppa euppa ruppa]` | update what has a newer version, and Wuppa itself |
+| `wuppa uppa …` / `wuppa puppa …` / `wuppa muppa …` / `wuppa euppa …` / `wuppa ruppa …` | run a tool, everything after the name is passed on |
+| `wuppa uninstall [name …]` | uninstall tools with their own scripts; without names everything, Wuppa too (`-y` answers yes). Your data is kept |
+| `wuppa self-update` | update only Wuppa |
+| `wuppa lang [en\|sv]` | language for the whole troupe |
+| `--no-anim` | no animations (also off with `NO_COLOR` and when the output is piped) |
 
-Menyn styrs som kusinernas: piltangenter, siffror som snabbval, `u` uppdatera allt, `i` installera det som saknas, `a` avinstallera,
-`r` skanna om och `q` avsluta.
+The menu works like the tools' own: arrow keys, digits as shortcuts, `u` update everything, `i` install what is missing, `a` uninstall,
+`r` scan again and `q` quit.
 
-## Teknik
+## Technology
 
-En Python-fil (bara standardbiblioteket, 3.8+), Windows, macOS och Linux. Installerade versioner läses med
-`<kusin> --version` och den senaste från `VERSION` i respektive repo på GitHub. Uppdatering kör kusinens egen
-installationsrad, så Wuppa vet aldrig mer om kusinerna än de själva gör.
+One Python file (standard library only, 3.8+), Windows, macOS and Linux. Installed versions are read with
+`<tool> --version` and the latest from `VERSION` in each repo on GitHub. An update runs the tool's own
+install line, so Wuppa never knows more about the tools than they do themselves.
 
-## Licens
+## License
 
 MIT

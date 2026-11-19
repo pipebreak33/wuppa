@@ -24,6 +24,10 @@ $Dir = Join-Path $HOME '.wuppa'
 $App = Join-Path $Dir 'app'
 $PyVersion = '3.12.8'
 
+# Language: TRUPPA_LANG, else ~/.truppa/config.json (shared by the whole troupe), else English
+$TL = $env:TRUPPA_LANG
+if (-not $TL) { try { $TL = (Get-Content -Raw -LiteralPath (Join-Path $HOME '.truppa/config.json') -ErrorAction Stop | ConvertFrom-Json).lang } catch { } }
+function T([string]$en, [string]$sv) { if ("$TL" -like 'sv*') { $sv } else { $en } }
 function Say($m)  { Write-Host "  W› $m" -ForegroundColor Yellow }
 function Warn($m) { Write-Host "  ! $m" -ForegroundColor Yellow }
 
@@ -64,19 +68,19 @@ function Find-Python {
 
 function Install-Python {
     if (-not $OnWindows) {
-        throw 'Python 3.8+ saknas. macOS: xcode-select --install (eller brew install python). Linux: sudo apt install python3.'
+        throw (T 'Python 3.8+ is missing. macOS: xcode-select --install (or brew install python). Linux: sudo apt install python3.' 'Python 3.8+ saknas. macOS: xcode-select --install (eller brew install python). Linux: sudo apt install python3.')
     }
     Update-SessionPath
     if (Get-Command winget -ErrorAction SilentlyContinue) {
-        Say 'Installerar Python 3 med winget'
+        Say (T 'Installing Python 3 with winget' 'Installerar Python 3 med winget')
         winget install --id Python.Python.3.12 -e --scope user --silent --accept-package-agreements --accept-source-agreements
         if ($LASTEXITCODE -eq 0) { Update-SessionPath; return }
-        Warn 'winget kunde inte installera Python, provar python.org'
+        Warn (T 'winget could not install Python, trying python.org' 'winget kunde inte installera Python, provar python.org')
     }
     $arch = switch ($env:PROCESSOR_ARCHITECTURE) { 'ARM64' { '-arm64' } 'x86' { '' } default { '-amd64' } }
     $url = "https://www.python.org/ftp/python/$PyVersion/python-$PyVersion$arch.exe"
     $exe = Join-Path $env:TEMP "python-$PyVersion-setup.exe"
-    Say "Hämtar Python $PyVersion från python.org"
+    Say (T "Fetching Python $PyVersion from python.org" "Hämtar Python $PyVersion från python.org")
     Invoke-WebRequest $url -OutFile $exe -UseBasicParsing
     $p = Start-Process $exe -ArgumentList '/quiet', 'InstallAllUsers=0', 'PrependPath=1', 'Include_launcher=1',
                                          'Include_test=0', 'Shortcuts=0' -Wait -PassThru
@@ -94,7 +98,7 @@ $py = Find-Python
 if (-not $py) {
     Install-Python
     $py = Find-Python
-    if (-not $py) { throw 'Python installerades men syns inte än. Öppna ett NYTT PowerShell-fönster och kör installationen igen.' }
+    if (-not $py) { throw (T 'Python was installed but is not visible yet. Open a NEW PowerShell window and run the installation again.' 'Python installerades men syns inte än. Öppna ett NYTT PowerShell-fönster och kör installationen igen.') }
 }
 
 # 2. Källan: en lokal checkout bredvid skriptet, annars arkivet från GitHub
@@ -102,22 +106,22 @@ $src = $null
 $tmp = $null
 if ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot 'wuppa.py')) -and $env:WUPPA_FROM_WEB -ne '1') {
     $src = $PSScriptRoot
-    Say "Installerar från $src"
+    Say (T "Installing from $src" "Installerar från $src")
 }
 try {
     if (-not $src) {
         $tmp = Join-Path ([IO.Path]::GetTempPath()) ("wuppa-" + [guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Force -Path $tmp | Out-Null
         $zip = Join-Path $tmp 'wuppa.zip'
-        Say "Hämtar Wuppa från github.com/$Repo ($Branch)"
+        Say (T "Fetching Wuppa from github.com/$Repo ($Branch)" "Hämtar Wuppa från github.com/$Repo ($Branch)")
         Invoke-WebRequest "https://github.com/$Repo/archive/$Branch.zip" -OutFile $zip -UseBasicParsing
         Expand-Archive -LiteralPath $zip -DestinationPath $tmp -Force
         $found = Get-ChildItem -Path $tmp -Filter 'wuppa.py' -Recurse -Depth 2 | Select-Object -First 1
-        if (-not $found) { throw 'Arkivet innehåller inte Wuppa.' }
+        if (-not $found) { throw (T 'The archive does not contain Wuppa.' 'Arkivet innehåller inte Wuppa.') }
         $src = $found.DirectoryName
     }
     Invoke-Py @('-c', 'import ast,sys; ast.parse(open(sys.argv[1],encoding="utf-8").read())', (Join-Path $src 'wuppa.py'))
-    if ($LASTEXITCODE -ne 0) { throw 'wuppa.py är trasig.' }
+    if ($LASTEXITCODE -ne 0) { throw (T 'wuppa.py is broken.' 'wuppa.py är trasig.') }
 
     # 3. Byt ut programmet (~/.wuppa/app)
     New-Item -ItemType Directory -Force -Path $Dir | Out-Null
@@ -157,12 +161,12 @@ if ($OnWindows) {
     Set-Content -Path $shim -Value "#!/usr/bin/env sh`nexec `"$($py[0])`" `"$target`" `"`$@`"`n" -NoNewline
     chmod +x $shim
     if ((($env:PATH -split ':') -notcontains $bin)) {
-        Warn "Lägg till $bin i PATH (t.ex. i ~/.zshrc: export PATH=`"`$HOME/.local/bin:`$PATH`")"
+        Warn (T "Add $bin to PATH (e.g. in ~/.zshrc: export PATH=`"`$HOME/.local/bin:`$PATH`")" "Lägg till $bin i PATH (t.ex. i ~/.zshrc: export PATH=`"`$HOME/.local/bin:`$PATH`")")
     }
 }
 
 $ver = Invoke-Py @($target, '--version') 2>$null
-Write-Host "  ✔ $ver installerad." -ForegroundColor Green
+Write-Host (T "  ✔ $ver installed." "  ✔ $ver installerad.") -ForegroundColor Green
 
 # 5. Kusinerna: kör var och ens egen installer i en egen process (ett fel där stoppar inte de andra)
 $failed = @()
@@ -177,10 +181,10 @@ if ($env:WUPPA_ONLY -ne '1') {
         $localDir = if ($PSScriptRoot) { Join-Path (Split-Path $PSScriptRoot -Parent) $name } else { $null }
         if ($src -eq $PSScriptRoot -and $localDir -and (Test-Path (Join-Path $localDir 'install.ps1')) -and
                 ((Test-Path (Join-Path $localDir "$name.py")) -or (Test-Path (Join-Path $localDir 'Cargo.toml')))) {
-            Say "$name från $localDir"
+            Say (T "$name from $localDir" "$name från $localDir")
             & $ps -NoProfile -ExecutionPolicy Bypass -File (Join-Path $localDir 'install.ps1')
         } else {
-            Say "$name från github.com/$owner/$name"
+            Say (T "$name from github.com/$owner/$name" "$name från github.com/$owner/$name")
             & $ps -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/$owner/$name/main/install.ps1 | iex"
         }
         if ($LASTEXITCODE -ne 0) { $failed += $name }
@@ -191,8 +195,8 @@ if ($OnWindows) { Update-SessionPath }
 Write-Host ''
 $Clock.Stop(); $took = if ($Clock.Elapsed.TotalSeconds -ge 60) { '{0} min {1} s' -f [int][math]::Floor($Clock.Elapsed.TotalMinutes), $Clock.Elapsed.Seconds } else { '{0} s' -f [int]$Clock.Elapsed.TotalSeconds }
 if ($failed) {
-    Warn ("Det här gick inte ($took): " + ($failed -join ', ') + ". Kör samma rad igen om en stund, eller: wuppa install " + ($failed -join ' '))
+    Warn ((T "This did not work ($took): " "Det här gick inte ($took): ") + ($failed -join ', ') + (T ". Run the same line again in a while, or: wuppa install " ". Kör samma rad igen om en stund, eller: wuppa install ") + ($failed -join ' '))
 } else {
-    Write-Host "  W› Klart på $took! Öppna en ny terminal och kör wuppa för menyn, eller uppa, puppa, muppa, euppa och ruppa direkt." -ForegroundColor Yellow
-    Write-Host "  Avinstallera: irm https://raw.githubusercontent.com/pipebreak33/wuppa/main/uninstall.ps1 | iex   (frågar om hela släkten)`n" -ForegroundColor DarkGray
+    Write-Host (T "  W› Done in $took! Open a new terminal and run wuppa for the menu, or uppa, puppa, muppa, euppa and ruppa directly." "  W› Klart på $took! Öppna en ny terminal och kör wuppa för menyn, eller uppa, puppa, muppa, euppa och ruppa direkt.") -ForegroundColor Yellow
+    Write-Host (T "  Uninstall: irm https://raw.githubusercontent.com/pipebreak33/wuppa/main/uninstall.ps1 | iex   (asks about the whole troupe)`n" "  Avinstallera: irm https://raw.githubusercontent.com/pipebreak33/wuppa/main/uninstall.ps1 | iex   (frågar om hela släkten)`n") -ForegroundColor DarkGray
 }
